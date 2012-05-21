@@ -44,7 +44,7 @@ use constant DESCRIPTION => {
 	TEST_SD_OPT_RECOGNIZED_LANG()		=> 'Recognized sd:supportedLanguage IRI',
 };
 
-our $VALIDATOR_IRI	= 'http://kasei.us/2009/09/sparql/sdvalidator.cgi#validator';
+our $VALIDATOR_IRI	= 'http://www.w3.org/2009/sparql/sdvalidator#validator';
 my $earl			= RDF::Trine::Namespace->new( 'http://www.w3.org/ns/earl#' );
 my $sd				= RDF::Trine::Namespace->new( 'http://www.w3.org/ns/sparql-service-description#' );
 my $sdtest			= RDF::Trine::Namespace->new( 'http://www.w3.org/2009/sparql/docs/tests/data-sparql11/service-description/manifest#' );
@@ -63,7 +63,7 @@ sub run {
 	} else {
 		print $q->header( -type => 'text/html', -charset => 'utf-8');
 		print_html_header();
-		print_form('');
+		print_form('', '');
 		print_html_footer();
 	}
 }
@@ -322,11 +322,15 @@ sub show_results {
 	push(@accept, { type => 'text/plain', value => Accept('text/plain') } );
 	@accept	= sort { $b->{value} <=> $a->{value} || $b->{type} eq 'html' } @accept;
 	my $a	= $accept[0];
+	my $tested	= ($q->param('software')) ? iri($q->param('software')) : iri($url);
 	if ($a->{type} eq 'text/html') {
 		print $q->header( -type => 'text/html', -charset => 'utf-8');
-		html_results($url, $res, $opt);
+		html_results($url, $tested, $res, $opt);
 	} elsif ($a->{type} eq 'application/json') {
 		my $data	= { endpoint => $url, results => $res };
+		if (length($tested)) {
+			$data->{software}	= $tested;
+		}
 		print $q->header( -type => $a->{type}, -charset => 'utf-8');
 		print JSON->new->utf8->pretty->encode($data);
 	} elsif ($a->{type} =~ m#^((application/rdf[+]xml)|(text/(turtle|plain)))$#) {
@@ -341,8 +345,7 @@ sub show_results {
 			$type	= 'ntriples';
 		}
 		my $s		= RDF::Trine::Serializer->new( $type, namespaces => $map );
-		my $tested	= ($q->param('software')) ? iri($q->param('software')) : iri($url);
-		rdf_results($url, $res, $s, $opt, $tested);
+		rdf_results($url, $tested, $res, $s, $opt);
 	} else {
 		print $q->header( -type => 'text/plain', -charset => 'utf-8');
 		print "should emit $a->{type}";
@@ -351,10 +354,10 @@ sub show_results {
 
 sub rdf_results {
 	my $url		= shift;
+	my $tested	= shift;
 	my $res		= shift;
 	my $s		= shift;
 	my $opt		= shift;
-	my $tested	= shift;
 	my $model	= RDF::Trine::Model->new();
 	my ($sec, $min, $hour, $day, $mon, $year)	= gmtime();
 	$mon++;
@@ -395,10 +398,11 @@ sub rdf_results {
 
 sub html_results {
 	my $url	= shift;
+	my $tested	= shift;
 	my $res	= shift;
 	my $opt		= shift;
 	print_html_header();
-	print_form($url);
+	print_form($url, $tested);
 	
 	my $req_total	= 0;
 	my $req_passed	= 0;
@@ -541,10 +545,12 @@ END
 }
 
 sub print_form {
-	my $url	= shift;
+	my $url			= shift;
+	my $software	= shift;
 	print <<"END";
 	<form action="" method="get">
 		SPARQL Endpoint: <input name="url" id="url" type="text" size="40" value="$url" /><br/>
+		Implementation software IRI: <input name="software" id="software" type="text" size="40" value="$software" /><br/>
 		<input name="bp" id="bp" type="checkbox" value="1" /> Run best-practices tests<br/>
 		<input name="submit" id="submit" type="submit" value="Submit" />
 	</form>
