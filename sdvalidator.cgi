@@ -3,7 +3,6 @@
 use strict;
 use warnings;
 use lib qw(lib);
-use Data::Dumper;
 use CGI qw(Accept);
 use JSON;
 use RDF::Trine qw(statement iri literal blank);
@@ -352,7 +351,7 @@ sub show_results {
 	}
 }
 
-sub rdf_results {
+sub results_model {
 	my $url		= shift;
 	my $tested	= shift;
 	my $res		= shift;
@@ -392,7 +391,16 @@ sub rdf_results {
 			$model->add_statement( $st );
 		}
 	}
-	
+	return $model;
+}
+
+sub rdf_results {
+	my $url		= shift;
+	my $tested	= shift;
+	my $res		= shift;
+	my $s		= shift;
+	my $opt		= shift;
+	my $model	= results_model($url, $tested, $res, $s, $opt);
 	$s->serialize_model_to_file( \*STDOUT, $model );
 }
 
